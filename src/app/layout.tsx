@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 
 import '@/app/globals.css';
@@ -5,6 +6,7 @@ import '@/app/globals.css';
 import { Inter } from 'next/font/google';
 
 import { cn } from '@/lib/utils';
+import { FirebaseClientProvider } from '@/firebase';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -20,7 +22,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={cn(inter.className, 'antialiased')}>{children}</body>
+      <body className={cn(inter.className, 'antialiased')}>
+        <FirebaseClientProvider>{children}</FirebaseClientProvider>
+      </body>
     </html>
   );
 }
