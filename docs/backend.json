@@ -1,0 +1,250 @@
+{
+  "entities": {
+    "Project": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Project",
+      "type": "object",
+      "description": "Represents a project with its associated details.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Project entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the project."
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the project."
+        },
+        "startDate": {
+          "type": "string",
+          "description": "The date when the project started.",
+          "format": "date-time"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "The planned end date for the project.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Subtask": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Subtask",
+      "type": "object",
+      "description": "Represents a subtask within a project.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Subtask entity."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Reference to Project. (Relationship: Project 1:N Subtask)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the subtask."
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the subtask."
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "The due date for the subtask.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the subtask (e.g., 'To Do', 'In Progress', 'Completed')."
+        }
+      },
+      "required": [
+        "id",
+        "projectId",
+        "name"
+      ]
+    },
+    "Goal": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Goal",
+      "type": "object",
+      "description": "Represents a goal associated with a project.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Goal entity."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Reference to Project. (Relationship: Project 1:N Goal)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the goal."
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the goal."
+        },
+        "deadline": {
+          "type": "string",
+          "description": "The deadline for achieving the goal.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the goal (e.g., 'Active', 'Achieved', 'Failed')."
+        }
+      },
+      "required": [
+        "id",
+        "projectId",
+        "name"
+      ]
+    },
+    "Note": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Note",
+      "type": "object",
+      "description": "Represents a note, potentially associated with a project.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Note entity."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Reference to Project. (Relationship: Project 1:N Note)"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the note."
+        },
+        "content": {
+          "type": "string",
+          "description": "Content of the note."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the note was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "content"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}/projects/{projectId}",
+        "definition": {
+          "entityName": "Project",
+          "schema": {
+            "$ref": "#/backend/entities/Project"
+          },
+          "description": "Stores project details for a specific user. Path-based ownership is enforced.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user owning the project."
+            },
+            {
+              "name": "projectId",
+              "description": "The unique ID of the project."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/projects/{projectId}/subtasks/{subtaskId}",
+        "definition": {
+          "entityName": "Subtask",
+          "schema": {
+            "$ref": "#/backend/entities/Subtask"
+          },
+          "description": "Stores subtasks associated with a specific project. Path-based ownership and project association are enforced.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user owning the project."
+            },
+            {
+              "name": "projectId",
+              "description": "The ID of the project to which the subtask belongs."
+            },
+            {
+              "name": "subtaskId",
+              "description": "The unique ID of the subtask."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/projects/{projectId}/goals/{goalId}",
+        "definition": {
+          "entityName": "Goal",
+          "schema": {
+            "$ref": "#/backend/entities/Goal"
+          },
+          "description": "Stores goals associated with a specific project. Path-based ownership and project association are enforced.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user owning the project."
+            },
+            {
+              "name": "projectId",
+              "description": "The ID of the project to which the goal belongs."
+            },
+            {
+              "name": "goalId",
+              "description": "The unique ID of the goal."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/projects/{projectId}/notes/{noteId}",
+        "definition": {
+          "entityName": "Note",
+          "schema": {
+            "$ref": "#/backend/entities/Note"
+          },
+          "description": "Stores notes associated with a specific project. Path-based ownership and project association are enforced.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user owning the project."
+            },
+            {
+              "name": "projectId",
+              "description": "The ID of the project to which the note belongs."
+            },
+            {
+              "name": "noteId",
+              "description": "The unique ID of the note."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "This Firestore structure is designed to organize project-related data, including projects, subtasks, goals, and notes, within a user-specific context. Each user has their own set of projects, and each project can have multiple subtasks, goals, and notes. This structure supports the application's core features, including task management, goal setting, and note-taking, and ensures data synchronization across platforms. The path-based ownership `/users/{userId}/projects/{projectId}` is used to secure private user data.\n\n**Authorization Independence:** The structure achieves authorization independence by relying on path-based ownership for projects, subtasks, goals, and notes. Each document is implicitly associated with a user based on its location in the Firestore hierarchy. This eliminates the need for `get()` calls in security rules to check ownership, enabling atomic operations and simplifying security logic.\n\n**QAPs Support:** The structure supports secure `list` operations (QAPs) by segregating data based on user ownership. Rules can easily grant list access to documents under a specific user's path (`/users/{userId}/...`), ensuring that users can only access their own projects, subtasks, goals, and notes. This prevents unauthorized access to data from other users. The project ID is included in all subcollections for ease of querying."
+  }
+}

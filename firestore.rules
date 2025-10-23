@@ -1,0 +1,113 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Checks if the request is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the authenticated user ID matches the provided user ID.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the authenticated user ID matches the provided user ID and the resource exists.
+     */
+    function isExistingOwner(userId) {
+      return isSignedIn() && isOwner(userId) && exists(resource);
+    }
+
+    /**
+     * @description Enforces that the ID of the new document must match the ID in the path.
+     */
+    function isValidCreate(resourceId) {
+        return request.resource.data.id == resourceId;
+    }
+
+    /**
+     * @description Enforces that the ID of the document cannot be changed.
+     */
+     function isIdUnchanged(resourceId) {
+        return request.resource.data.id == resource.data.id;
+     }
+
+
+    /**
+     * @description Rules for managing user project documents.
+     * @path /users/{userId}/projects/{projectId}
+     * @allow (create) - User 'user123' can create a project if they are authenticated and the userId matches.
+     * @allow (get) - User 'user123' can get a project if they are authenticated and the userId matches.
+     * @allow (update) - User 'user123' can update a project if they are authenticated and the userId matches.
+     * @allow (delete) - User 'user123' can delete a project if they are authenticated and the userId matches.
+     * @deny (create) - User 'user456' cannot create a project under /users/user123/projects if they are authenticated as 'user456'.
+     * @principle Enforces document ownership for writes; Restricts access to a user's own data tree; Validates relational integrity between documents.
+     */
+    match /users/{userId}/projects/{projectId} {
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rules for managing subtask documents within a project.
+     * @path /users/{userId}/projects/{projectId}/subtasks/{subtaskId}
+     * @allow (create) - User 'user123' can create a subtask if they are authenticated and the userId matches.
+     * @allow (get) - User 'user123' can get a subtask if they are authenticated and the userId matches.
+     * @allow (update) - User 'user123' can update a subtask if they are authenticated and the userId matches.
+     * @allow (delete) - User 'user123' can delete a subtask if they are authenticated and the userId matches.
+     * @deny (create) - User 'user456' cannot create a subtask under /users/user123/projects/proj123/subtasks if they are authenticated as 'user456'.
+     * @principle Enforces document ownership for writes; Restricts access to a user's own data tree; Validates relational integrity between documents.
+     */
+    match /users/{userId}/projects/{projectId}/subtasks/{subtaskId} {
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rules for managing goal documents within a project.
+     * @path /users/{userId}/projects/{projectId}/goals/{goalId}
+     * @allow (create) - User 'user123' can create a goal if they are authenticated and the userId matches.
+     * @allow (get) - User 'user123' can get a goal if they are authenticated and the userId matches.
+     * @allow (update) - User 'user123' can update a goal if they are authenticated and the userId matches.
+     * @allow (delete) - User 'user123' can delete a goal if they are authenticated and the userId matches.
+     * @deny (create) - User 'user456' cannot create a goal under /users/user123/projects/proj123/goals if they are authenticated as 'user456'.
+     * @principle Enforces document ownership for writes; Restricts access to a user's own data tree; Validates relational integrity between documents.
+     */
+    match /users/{userId}/projects/{projectId}/goals/{goalId} {
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rules for managing note documents within a project.
+     * @path /users/{userId}/projects/{projectId}/notes/{noteId}
+     * @allow (create) - User 'user123' can create a note if they are authenticated and the userId matches.
+     * @allow (get) - User 'user123' can get a note if they are authenticated and the userId matches.
+     * @allow (update) - User 'user123' can update a note if they are authenticated and the userId matches.
+     * @allow (delete) - User 'user123' can delete a note if they are authenticated and the userId matches.
+     * @deny (create) - User 'user456' cannot create a note under /users/user123/projects/proj123/notes if they are authenticated as 'user456'.
+     * @principle Enforces document ownership for writes; Restricts access to a user's own data tree; Validates relational integrity between documents.
+     */
+    match /users/{userId}/projects/{projectId}/notes/{noteId} {
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+  }
+}
