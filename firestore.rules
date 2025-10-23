@@ -1,113 +1,139 @@
+/**
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for projects, subtasks, goals, notes, and research items.
+ * All data is nested under `/users/{userId}/projects/{projectId}/...`, ensuring that only the owning user can access project-related information.
+ *
+ * Data Structure:
+ * - /users/{userId}/projects/{projectId}: Stores project details.
+ * - /users/{userId}/projects/{projectId}/subtasks/{subtaskId}: Stores subtasks associated with a project.
+ * - /users/{userId}/projects/{projectId}/goals/{goalId}: Stores goals associated with a project.
+ * - /users/{userId}/projects/{projectId}/notes/{noteId}: Stores notes associated with a project.
+ * - /users/{userId}/projects/{projectId}/research/{researchId}: Stores research items associated with a project.
+ *
+ * Key Security Decisions:
+ * - Strict user-ownership: Only the user identified in the path can read or write data.
+ * - No public listing: `list` operations are restricted to the owning user.
+ * - Path-based authorization: Authorization decisions are based solely on the Firestore path, avoiding `get()` calls.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the request is authenticated.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the authenticated user ID matches the provided user ID.
-     */
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the authenticated user ID matches the provided user ID and the resource exists.
-     */
-    function isExistingOwner(userId) {
-      return isSignedIn() && isOwner(userId) && exists(resource);
-    }
-
-    /**
-     * @description Enforces that the ID of the new document must match the ID in the path.
-     */
-    function isValidCreate(resourceId) {
-        return request.resource.data.id == resourceId;
-    }
-
-    /**
-     * @description Enforces that the ID of the document cannot be changed.
-     */
-     function isIdUnchanged(resourceId) {
-        return request.resource.data.id == resource.data.id;
-     }
-
-
-    /**
-     * @description Rules for managing user project documents.
+     * @description Manages access to project documents. Only the owner can create, read, update, or delete a project.
      * @path /users/{userId}/projects/{projectId}
-     * @allow (create) - User 'user123' can create a project if they are authenticated and the userId matches.
-     * @allow (get) - User 'user123' can get a project if they are authenticated and the userId matches.
-     * @allow (update) - User 'user123' can update a project if they are authenticated and the userId matches.
-     * @allow (delete) - User 'user123' can delete a project if they are authenticated and the userId matches.
-     * @deny (create) - User 'user456' cannot create a project under /users/user123/projects if they are authenticated as 'user456'.
-     * @principle Enforces document ownership for writes; Restricts access to a user's own data tree; Validates relational integrity between documents.
+     * @allow (create) User with UID 'test_user' can create a project with projectId 'test_project' under /users/test_user/projects/test_project.
+     * @allow (get) User with UID 'test_user' can get project with projectId 'test_project' under /users/test_user/projects/test_project.
+     * @allow (update) User with UID 'test_user' can update project with projectId 'test_project' under /users/test_user/projects/test_project.
+     * @allow (delete) User with UID 'test_user' can delete project with projectId 'test_project' under /users/test_user/projects/test_project.
+     * @deny (create) User with UID 'another_user' cannot create a project under /users/test_user/projects/test_project.
+     * @deny (get) User with UID 'another_user' cannot get project with projectId 'test_project' under /users/test_user/projects/test_project.
+     * @deny (update) User with UID 'another_user' cannot update project with projectId 'test_project' under /users/test_user/projects/test_project.
+     * @deny (delete) User with UID 'another_user' cannot delete project with projectId 'test_project' under /users/test_user/projects/test_project.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/projects/{projectId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Rules for managing subtask documents within a project.
+     * @description Manages access to subtask documents. Only the owner of the parent project can create, read, update, or delete a subtask.
      * @path /users/{userId}/projects/{projectId}/subtasks/{subtaskId}
-     * @allow (create) - User 'user123' can create a subtask if they are authenticated and the userId matches.
-     * @allow (get) - User 'user123' can get a subtask if they are authenticated and the userId matches.
-     * @allow (update) - User 'user123' can update a subtask if they are authenticated and the userId matches.
-     * @allow (delete) - User 'user123' can delete a subtask if they are authenticated and the userId matches.
-     * @deny (create) - User 'user456' cannot create a subtask under /users/user123/projects/proj123/subtasks if they are authenticated as 'user456'.
-     * @principle Enforces document ownership for writes; Restricts access to a user's own data tree; Validates relational integrity between documents.
+     * @allow (create) User with UID 'test_user' can create a subtask with subtaskId 'test_subtask' under /users/test_user/projects/test_project/subtasks/test_subtask.
+     * @allow (get) User with UID 'test_user' can get subtask with subtaskId 'test_subtask' under /users/test_user/projects/test_project/subtasks/test_subtask.
+     * @allow (update) User with UID 'test_user' can update subtask with subtaskId 'test_subtask' under /users/test_user/projects/test_project/subtasks/test_subtask.
+     * @allow (delete) User with UID 'test_user' can delete subtask with subtaskId 'test_subtask' under /users/test_user/projects/test_project/subtasks/test_subtask.
+     * @deny (create) User with UID 'another_user' cannot create a subtask under /users/test_user/projects/test_project/subtasks/test_subtask.
+     * @deny (get) User with UID 'another_user' cannot get subtask with subtaskId 'test_subtask' under /users/test_user/projects/test_project/subtasks/test_subtask.
+     * @deny (update) User with UID 'another_user' cannot update subtask with subtaskId 'test_subtask' under /users/test_user/projects/test_project/subtasks/test_subtask.
+     * @deny (delete) User with UID 'another_user' cannot delete subtask with subtaskId 'test_subtask' under /users/test_user/projects/test_project/subtasks/test_subtask.
+     * @principle Enforces document ownership and project association for all operations.
      */
     match /users/{userId}/projects/{projectId}/subtasks/{subtaskId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Rules for managing goal documents within a project.
+     * @description Manages access to goal documents. Only the owner of the parent project can create, read, update, or delete a goal.
      * @path /users/{userId}/projects/{projectId}/goals/{goalId}
-     * @allow (create) - User 'user123' can create a goal if they are authenticated and the userId matches.
-     * @allow (get) - User 'user123' can get a goal if they are authenticated and the userId matches.
-     * @allow (update) - User 'user123' can update a goal if they are authenticated and the userId matches.
-     * @allow (delete) - User 'user123' can delete a goal if they are authenticated and the userId matches.
-     * @deny (create) - User 'user456' cannot create a goal under /users/user123/projects/proj123/goals if they are authenticated as 'user456'.
-     * @principle Enforces document ownership for writes; Restricts access to a user's own data tree; Validates relational integrity between documents.
+     * @allow (create) User with UID 'test_user' can create a goal with goalId 'test_goal' under /users/test_user/projects/test_project/goals/test_goal.
+     * @allow (get) User with UID 'test_user' can get goal with goalId 'test_goal' under /users/test_user/projects/test_project/goals/test_goal.
+     * @allow (update) User with UID 'test_user' can update goal with goalId 'test_goal' under /users/test_user/projects/test_project/goals/test_goal.
+     * @allow (delete) User with UID 'test_user' can delete goal with goalId 'test_goal' under /users/test_user/projects/test_project/goals/test_goal.
+     * @deny (create) User with UID 'another_user' cannot create a goal under /users/test_user/projects/test_project/goals/test_goal.
+     * @deny (get) User with UID 'another_user' cannot get goal with goalId 'test_goal' under /users/test_user/projects/test_project/goals/test_goal.
+     * @deny (update) User with UID 'another_user' cannot update goal with goalId 'test_goal' under /users/test_user/projects/test_project/goals/test_goal.
+     * @deny (delete) User with UID 'another_user' cannot delete goal with goalId 'test_goal' under /users/test_user/projects/test_project/goals/test_goal.
+     * @principle Enforces document ownership and project association for all operations.
      */
     match /users/{userId}/projects/{projectId}/goals/{goalId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Rules for managing note documents within a project.
+     * @description Manages access to note documents. Only the owner of the parent project can create, read, update, or delete a note.
      * @path /users/{userId}/projects/{projectId}/notes/{noteId}
-     * @allow (create) - User 'user123' can create a note if they are authenticated and the userId matches.
-     * @allow (get) - User 'user123' can get a note if they are authenticated and the userId matches.
-     * @allow (update) - User 'user123' can update a note if they are authenticated and the userId matches.
-     * @allow (delete) - User 'user123' can delete a note if they are authenticated and the userId matches.
-     * @deny (create) - User 'user456' cannot create a note under /users/user123/projects/proj123/notes if they are authenticated as 'user456'.
-     * @principle Enforces document ownership for writes; Restricts access to a user's own data tree; Validates relational integrity between documents.
+     * @allow (create) User with UID 'test_user' can create a note with noteId 'test_note' under /users/test_user/projects/test_project/notes/test_note.
+     * @allow (get) User with UID 'test_user' can get note with noteId 'test_note' under /users/test_user/projects/test_project/notes/test_note.
+     * @allow (update) User with UID 'test_user' can update note with noteId 'test_note' under /users/test_user/projects/test_project/notes/test_note.
+     * @allow (delete) User with UID 'test_user' can delete note with noteId 'test_note' under /users/test_user/projects/test_project/notes/test_note.
+     * @deny (create) User with UID 'another_user' cannot create a note under /users/test_user/projects/test_project/notes/test_note.
+     * @deny (get) User with UID 'another_user' cannot get note with noteId 'test_note' under /users/test_user/projects/test_project/notes/test_note.
+     * @deny (update) User with UID 'another_user' cannot update note with noteId 'test_note' under /users/test_user/projects/test_project/notes/test_note.
+     * @deny (delete) User with UID 'another_user' cannot delete note with noteId 'test_note' under /users/test_user/projects/test_project/notes/test_note.
+     * @principle Enforces document ownership and project association for all operations.
      */
     match /users/{userId}/projects/{projectId}/notes/{noteId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
+
+    /**
+     * @description Manages access to research item documents. Only the owner of the parent project can create, read, update, or delete a research item.
+     * @path /users/{userId}/projects/{projectId}/research/{researchId}
+     * @allow (create) User with UID 'test_user' can create a research item with researchId 'test_research' under /users/test_user/projects/test_project/research/test_research.
+     * @allow (get) User with UID 'test_user' can get research item with researchId 'test_research' under /users/test_user/projects/test_project/research/test_research.
+     * @allow (update) User with UID 'test_user' can update research item with researchId 'test_research' under /users/test_user/projects/test_project/research/test_research.
+     * @allow (delete) User with UID 'test_user' can delete research item with researchId 'test_research' under /users/test_user/projects/test_project/research/test_research.
+     * @deny (create) User with UID 'another_user' cannot create a research item under /users/test_user/projects/test_project/research/test_research.
+     * @deny (get) User with UID 'another_user' cannot get research item with researchId 'test_research' under /users/test_user/projects/test_project/research/test_research.
+     * @deny (update) User with UID 'another_user' cannot update research item with researchId 'test_research' under /users/test_user/projects/test_project/research/test_research.
+     * @deny (delete) User with UID 'another_user' cannot delete research item with researchId 'test_research' under /users/test_user/projects/test_project/research/test_research.
+     * @principle Enforces document ownership and project association for all operations.
+     */
+    match /users/{userId}/projects/{projectId}/research/{researchId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+  }
+
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
+  function isOwner(userId) {
+    return isSignedIn() && request.auth.uid == userId;
+  }
+
+  function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
   }
 }
