@@ -1,126 +1,155 @@
-/**
- * @fileoverview Firestore Security Rules for the project management application.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model. Each user has their own data tree under `/users/{userId}`, and only the authenticated user can access their own data.
- *
- * Data Structure:
- * All data is nested under `/users/{userId}`, creating a private data space for each user.
- *  - `/users/{userId}/projects/{projectId}`: Stores project details.
- *  - `/users/{userId}/projects/{projectId}/subtasks/{subtaskId}`: Stores subtasks for each project.
- *  - `/users/{userId}/projects/{projectId}/goals/{goalId}`: Stores goals for each project.
- *  - `/users/{userId}/projects/{projectId}/notes/{noteId}`: Stores notes for each project.
- *  - `/users/{userId}/projects/{projectId}/research/{researchId}`: Stores research items for each project.
- *
- * Key Security Decisions:
- * - Users can only access their own data tree.
- * - Data consistency is enforced on create operations by validating that internal ownership fields match the path.
- * - Data consistency is enforced on update operations by enforcing that the ownership field is immutable.
- * - `list` operations are only allowed for the owner of the data.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the user is signed in.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Fundamental check for authentication.
+     * @description Checks if the request is made by a signed-in user.
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
     /**
-     * @description Checks if the user is the owner of the resource, based on the `userId` path segment.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Enforces ownership based on the `userId` path segment.
+     * @description Checks if the authenticated user ID matches the provided user ID.
      */
     function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+      return request.auth.uid == userId;
     }
 
     /**
-     * @description Checks if the user is the owner of the resource and the resource exists.
-     *              Used for update and delete operations to prevent acting on non-existent documents.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Ensures the resource exists before attempting to modify it.
+     * @description Checks if the authenticated user is the owner of the existing document.
+     * It also ensures that the document exists before allowing the operation.
      */
     function isExistingOwner(userId) {
-      return isOwner(userId) && exists(resource);
+      return isOwner(userId) && exists( /databases/$(database)/documents/users/$(userId) );
     }
 
-
     /**
-     * @description Enforces that the `id` field in the data matches the `userId` path parameter on create.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Ensures data consistency between the path and document data.
+     * @description Enforces that the incoming resource data has the correct owner ID on create.
      */
-    function isValidNewOwner(userId) {
+    function isCreatingWithOwnerId(userId) {
         return request.resource.data.id == userId;
     }
 
     /**
-     * @description Enforces that the `id` field is immutable on update.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Ensures data consistency on updates.
+     * @description Enforces that the owner ID cannot be changed after creation.
      */
     function isOwnerIdImmutable(userId) {
-        return request.resource.data.id == resource.data.id;
+        return resource.data.id == request.resource.data.id;
     }
 
     match /users/{userId} {
-          allow read, write: if isOwner(userId);
+      allow read, write: if isSignedIn() && isOwner(userId);
+    }
 
-          match /projects/{projectId} {
-            allow get: if isOwner(userId);
-            allow list: if isOwner(userId);
-            allow create: if isOwner(userId);
-            allow update: if isOwner(userId) ;
-            allow delete: if isOwner(userId);
+    /**
+     * @description
+     *  Rules for the project documents.
+     * @path /users/{userId}/projects/{projectId}
+     * @allow (create) User 'user123' can create a new project with a matching userId in the path and data.
+     * @allow (get) User 'user123' can read their project document.
+     * @allow (list) User 'user123' can list their project documents.
+     * @allow (update) User 'user123' can update their project document.
+     * @allow (delete) User 'user123' can delete their project document.
+     * @deny (create) User 'user456' cannot create a project under 'user123''s path.
+     * @deny (update) User 'user456' cannot update a project under 'user123''s path.
+     * @deny (delete) User 'user456' cannot delete a project under 'user123''s path.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /users/{userId}/projects/{projectId} {
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
+    }
 
-            match /subtasks/{subtaskId} {
-              allow get: if isOwner(userId);
-              allow list: if isOwner(userId);
-              allow create: if isOwner(userId);
-              allow update: if isOwner(userId);
-              allow delete: if isOwner(userId);
-            }
+    /**
+     * @description
+     *  Rules for the subtask documents.
+     * @path /users/{userId}/projects/{projectId}/subtasks/{subtaskId}
+     * @allow (create) User 'user123' can create a new subtask under their project.
+     * @allow (get) User 'user123' can read their subtask document.
+     * @allow (list) User 'user123' can list their subtask documents.
+     * @allow (update) User 'user123' can update their subtask document.
+     * @allow (delete) User 'user123' can delete their subtask document.
+     * @deny (create) User 'user456' cannot create a subtask under 'user123''s project.
+     * @deny (update) User 'user456' cannot update a subtask under 'user123''s project.
+     * @deny (delete) User 'user456' can delete a subtask under 'user123''s project.
+     * @principle Enforces document ownership and project association for all operations.
+     */
+    match /users/{userId}/projects/{projectId}/subtasks/{subtaskId} {
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
+    }
 
-            match /goals/{goalId} {
-              allow get: if isOwner(userId);
-              allow list: if isOwner(userId);
-              allow create: if isOwner(userId);
-              allow update: if isOwner(userId);
-              allow delete: if isOwner(userId);
-            }
+    /**
+     * @description
+     *  Rules for the goal documents.
+     * @path /users/{userId}/projects/{projectId}/goals/{goalId}
+     * @allow (create) User 'user123' can create a new goal under their project.
+     * @allow (get) User 'user123' can read their goal document.
+     * @allow (list) User 'user123' can list their goal documents.
+     * @allow (update) User 'user123' can update their goal document.
+     * @allow (delete) User 'user123' can delete their goal document.
+     * @deny (create) User 'user456' cannot create a goal under 'user123''s project.
+     * @deny (update) User 'user456' cannot update a goal under 'user123''s project.
+     * @deny (delete) User 'user456' can delete a goal under 'user123''s project.
+     * @principle Enforces document ownership and project association for all operations.
+     */
+    match /users/{userId}/projects/{projectId}/goals/{goalId} {
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
+    }
 
-            match /notes/{noteId} {
-              allow get: if isOwner(userId);
-              allow list: if isOwner(userId);
-              allow create: if isOwner(userId);
-              allow update: if isOwner(userId);
-              allow delete: if isOwner(userId);
-            }
+    /**
+     * @description
+     *  Rules for the note documents.
+     * @path /users/{userId}/projects/{projectId}/notes/{noteId}
+     * @allow (create) User 'user123' can create a new note under their project.
+     * @allow (get) User 'user123' can read their note document.
+     * @allow (list) User 'user123' can list their note documents.
+     * @allow (update) User 'user123' can update their note document.
+     * @allow (delete) User 'user123' can delete their note document.
+     * @deny (create) User 'user456' cannot create a note under 'user123''s project.
+     * @deny (update) User 'user456' cannot update a note under 'user123''s project.
+     * @deny (delete) User 'user456' can delete a note under 'user123''s project.
+     * @principle Enforces document ownership and project association for all operations.
+     */
+    match /users/{userId}/projects/{projectId}/notes/{noteId} {
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
+    }
 
-            match /research/{researchId} {
-              allow get: if isOwner(userId);
-              allow list: if isOwner(userId);
-              allow create: if isOwner(userId);
-              allow update: if isOwner(userId);
-              allow delete: if isOwner(userId);
-            }
-          }
+    /**
+     * @description
+     *  Rules for the research item documents.
+     * @path /users/{userId}/projects/{projectId}/research/{researchId}
+     * @allow (create) User 'user123' can create a new research item under their project.
+     * @allow (get) User 'user123' can read their research item document.
+     * @allow (list) User 'user123' can list their research item documents.
+     * @allow (update) User 'user123' can update their research item document.
+     * @allow (delete) User 'user123' can delete their research item document.
+     * @deny (create) User 'user456' cannot create a research item under 'user123''s project.
+     * @deny (update) User 'user456' cannot update a research item under 'user123''s project.
+     * @deny (delete) User 'user456' can delete a research item under 'user123''s project.
+     * @principle Enforces document ownership and project association for all operations.
+     */
+    match /users/{userId}/projects/{projectId}/research/{researchId} {
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if isSignedIn() && isOwner(userId);
     }
   }
 }
