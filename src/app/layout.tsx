@@ -11,8 +11,8 @@ import { FirebaseClientProvider } from '@/firebase';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Wege',
-  description: 'The Next generation of business management',
+  title: 'Sleek Memory',
+  description: 'The Next generation of personal productivity and business management',
 };
 
 export default function RootLayout({

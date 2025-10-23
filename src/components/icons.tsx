@@ -16,7 +16,7 @@ export const Icons = {
         textAnchor="middle"
         fill="currentColor"
       >
-        Wege
+        Sleek Memory
       </text>
     </svg>
   ),
