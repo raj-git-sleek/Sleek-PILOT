@@ -8,6 +8,7 @@ import { GoalSetter } from '@/components/dashboard/goal-setter';
 import { NotesSection } from '@/components/dashboard/notes-section';
 import { ProgressTracker } from '@/components/dashboard/progress-tracker';
 import { TaskManager } from '@/components/dashboard/task-manager';
+import { SecureDocuments } from '@/components/dashboard/secure-documents';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { Task, Goal, Note } from '@/lib/types';
@@ -17,16 +18,18 @@ export default function Home() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const [dailyPlan, setDailyPlan] = useState<string>('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-background">
       <Header />
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
         <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 md:w-fit">
+          <TabsList className="grid w-full grid-cols-4 md:w-fit">
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="goals">Goals</TabsTrigger>
             <TabsTrigger value="notes">Notes</TabsTrigger>
+            <TabsTrigger value="secure">Secure</TabsTrigger>
           </TabsList>
           <TabsContent value="dashboard" className="mt-6">
             <div className="grid auto-rows-max items-start gap-6 lg:grid-cols-3">
@@ -74,6 +77,12 @@ export default function Home() {
           </TabsContent>
           <TabsContent value="notes" className="mt-6">
             <NotesSection notes={notes} setNotes={setNotes} />
+          </TabsContent>
+          <TabsContent value="secure" className="mt-6">
+            <SecureDocuments
+              isAuthenticated={isAuthenticated}
+              setIsAuthenticated={setIsAuthenticated}
+            />
           </TabsContent>
         </Tabs>
       </main>

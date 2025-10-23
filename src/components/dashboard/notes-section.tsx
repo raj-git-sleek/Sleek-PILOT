@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
-import { Trash2 } from 'lucide-react';
+import { Paperclip, Trash2, Image as ImageIcon } from 'lucide-react';
 
 interface NotesSectionProps {
   notes: Note[];
@@ -36,7 +36,7 @@ export function NotesSection({ notes, setNotes }: NotesSectionProps) {
     <Card>
       <CardHeader>
         <CardTitle>Daily Notes</CardTitle>
-        <CardDescription>A place for your random thoughts and ideas.</CardDescription>
+        <CardDescription>A place for your random thoughts, ideas, and files.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -45,7 +45,13 @@ export function NotesSection({ notes, setNotes }: NotesSectionProps) {
             value={newNoteContent}
             onChange={(e) => setNewNoteContent(e.target.value)}
           />
-          <Button onClick={addNote}>Add Note</Button>
+          <div className="flex justify-between items-center">
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm"><Paperclip /> Attach File</Button>
+              <Button variant="outline" size="sm"><ImageIcon /> Add Image</Button>
+            </div>
+            <Button onClick={addNote}>Add Note</Button>
+          </div>
         </div>
         <ScrollArea className="h-96 rounded-md border">
             <div className="p-4 space-y-4">
