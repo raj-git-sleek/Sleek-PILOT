@@ -6,7 +6,7 @@ export function Header() {
       <div className="container flex h-14 items-center">
         <div className="mr-4 flex items-center">
           <Icons.logo className="h-6 w-6 text-primary" />
-          <span className="ml-2 font-bold font-headline">Project Pilot AI</span>
+          <span className="ml-2 font-bold font-headline">ApparelPilot AI</span>
         </div>
       </div>
     </header>
