@@ -11,39 +11,54 @@ import { CalendarIcon, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
+import { useFirebase, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, doc, serverTimestamp, query, where, Query } from 'firebase/firestore';
+import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 interface TaskManagerProps {
-  tasks: Task[];
-  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  projectId: string;
 }
 
-export function TaskManager({ tasks, setTasks }: TaskManagerProps) {
+export function TaskManager({ projectId }: TaskManagerProps) {
   const [newTaskText, setNewTaskText] = useState('');
   const [deadline, setDeadline] = useState<Date | undefined>();
+  const { firestore } = useFirebase();
+  const { user } = useUser();
+
+  const tasksQuery = useMemoFirebase(() => {
+    if (!user || !firestore || !projectId) return null;
+    return query(
+      collection(firestore, `users/${user.uid}/projects/${projectId}/subtasks`),
+    ) as Query;
+  }, [user, firestore, projectId]);
+
+  const { data: tasks } = useCollection<Task>(tasksQuery);
 
   const addTask = () => {
-    if (newTaskText.trim() === '') return;
-    const newTask: Task = {
-      id: Date.now().toString(),
+    if (newTaskText.trim() === '' || !user || !firestore) return;
+    const tasksCol = collection(firestore, `users/${user.uid}/projects/${projectId}/subtasks`);
+    const newTask = {
       text: newTaskText.trim(),
       completed: false,
       deadline,
+      projectId,
+      createdAt: serverTimestamp(),
     };
-    setTasks((prev) => [newTask, ...prev]);
+    addDocumentNonBlocking(tasksCol, newTask);
     setNewTaskText('');
     setDeadline(undefined);
   };
 
-  const toggleTask = (id: string) => {
-    setTasks((prev) =>
-      prev.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task
-      )
-    );
+  const toggleTask = (id: string, completed: boolean) => {
+    if (!user || !firestore) return;
+    const taskDoc = doc(firestore, `users/${user.uid}/projects/${projectId}/subtasks`, id);
+    updateDocumentNonBlocking(taskDoc, { completed: !completed });
   };
 
   const deleteTask = (id: string) => {
-    setTasks((prev) => prev.filter((task) => task.id !== id));
+    if (!user || !firestore) return;
+    const taskDoc = doc(firestore, `users/${user.uid}/projects/${projectId}/subtasks`, id);
+    deleteDocumentNonBlocking(taskDoc);
   };
 
   return (
@@ -83,7 +98,7 @@ export function TaskManager({ tasks, setTasks }: TaskManagerProps) {
 
       <ScrollArea className="h-72 rounded-md border">
         <div className="p-4 space-y-2">
-          {tasks.length > 0 ? (
+          {tasks && tasks.length > 0 ? (
             tasks.map((task) => (
               <div
                 key={task.id}
@@ -93,7 +108,7 @@ export function TaskManager({ tasks, setTasks }: TaskManagerProps) {
                 <Checkbox
                   id={`task-${task.id}`}
                   checked={task.completed}
-                  onCheckedChange={() => toggleTask(task.id)}
+                  onCheckedChange={() => toggleTask(task.id, task.completed)}
                 />
                 <label
                   htmlFor={`task-${task.id}`}
@@ -106,7 +121,8 @@ export function TaskManager({ tasks, setTasks }: TaskManagerProps) {
                 </label>
                 {task.deadline && (
                   <span className="text-xs text-muted-foreground">
-                    {format(task.deadline, 'MMM d')}
+                    {/* @ts-ignore */}
+                    {task.deadline.toDate ? format(task.deadline.toDate(), 'MMM d') : format(task.deadline, 'MMM d')}
                   </span>
                 )}
                 <Button variant="ghost" size="icon" onClick={() => deleteTask(task.id)}>

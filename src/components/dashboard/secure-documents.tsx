@@ -9,14 +9,15 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ShieldCheck, ShieldAlert, FileText, KeyRound } from 'lucide-react';
 
 interface SecureDocumentsProps {
-  isAuthenticated: boolean;
-  setIsAuthenticated: (isAuthenticated: boolean) => void;
+  projectId: string;
+  // This component will manage its own auth state for now
 }
 
 const CORRECT_PIN = '1367';
 
-export function SecureDocuments({ isAuthenticated, setIsAuthenticated }: SecureDocumentsProps) {
+export function SecureDocuments({ projectId }: SecureDocumentsProps) {
   const [pin, setPin] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { toast } = useToast();
 
   const handlePinUnlock = () => {
@@ -24,7 +25,7 @@ export function SecureDocuments({ isAuthenticated, setIsAuthenticated }: SecureD
       setIsAuthenticated(true);
       toast({
         title: 'Access Granted',
-        description: 'You have successfully unlocked your secure documents.',
+        description: 'You have successfully unlocked your secure documents for this project.',
       });
     } else {
       toast({
@@ -44,7 +45,7 @@ export function SecureDocuments({ isAuthenticated, setIsAuthenticated }: SecureD
             <ShieldAlert className="text-primary" /> Secure Area
           </CardTitle>
           <CardDescription>
-            This area contains sensitive information. Please enter your 4-digit PIN to proceed.
+            This area contains sensitive information for project. Please enter your 4-digit PIN to proceed.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -70,7 +71,7 @@ export function SecureDocuments({ isAuthenticated, setIsAuthenticated }: SecureD
             <ShieldCheck className="text-green-500" /> Secure Documents
         </CardTitle>
         <CardDescription>
-          Store your company licenses, tax documents, API keys, and passwords securely.
+          Store your company licenses, tax documents, API keys, and passwords securely for this project.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -90,7 +91,7 @@ export function SecureDocuments({ isAuthenticated, setIsAuthenticated }: SecureD
         </Alert>
         {/* Placeholder for document list */}
         <div className="text-center text-muted-foreground py-8 border-t mt-6">
-            <p>No documents or credentials stored yet.</p>
+            <p>No documents or credentials stored yet for this project.</p>
         </div>
       </CardContent>
     </Card>

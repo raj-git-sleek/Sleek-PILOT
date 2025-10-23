@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from '@/components/header';
 import { AIPlanner } from '@/components/dashboard/ai-planner';
 import { DailyPlanDisplay } from '@/components/dashboard/daily-plan-display';
@@ -11,19 +11,117 @@ import { TaskManager } from '@/components/dashboard/task-manager';
 import { SecureDocuments } from '@/components/dashboard/secure-documents';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { Task, Goal, Note } from '@/lib/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import type { Task, Goal, Note, Project } from '@/lib/types';
+
+import { useFirebase, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, addDoc, serverTimestamp, Query } from 'firebase/firestore';
+import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { PlusCircle } from 'lucide-react';
 
 export default function Home() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [dailyPlan, setDailyPlan] = useState<string>('');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [activeProject, setActiveProject] = useState<Project | null>(null);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [isNewProjectDialogOpen, setIsNewProjectDialogOpen] = useState(false);
+
+  const { auth, firestore } = useFirebase();
+  const { user, isUserLoading } = useUser();
+
+  // Sign in user anonymously if not logged in
+  useEffect(() => {
+    if (!user && !isUserLoading && auth) {
+      initiateAnonymousSignIn(auth);
+    }
+  }, [user, isUserLoading, auth]);
+
+  // Fetch projects for the current user
+  const projectsQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return collection(firestore, 'users', user.uid, 'projects') as Query;
+  }, [user, firestore]);
+  const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
+
+  // Set the first project as active by default
+  useEffect(() => {
+    if (!activeProject && projects && projects.length > 0) {
+      setActiveProject(projects[0]);
+    }
+  }, [projects, activeProject]);
+
+  const handleCreateProject = async () => {
+    if (!newProjectName.trim() || !user || !firestore) return;
+    const projectCol = collection(firestore, 'users', user.uid, 'projects');
+    const newProject = {
+      name: newProjectName,
+      createdAt: serverTimestamp(),
+    };
+    const docRef = await addDoc(projectCol, newProject);
+    setActiveProject({ id: docRef.id, name: newProjectName });
+    setNewProjectName('');
+    setIsNewProjectDialogOpen(false);
+  };
+
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-background">
       <Header />
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold">My Projects</h1>
+          <Dialog open={isNewProjectDialogOpen} onOpenChange={setIsNewProjectDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline" className="gap-1">
+                <PlusCircle className="h-4 w-4" />
+                New Project
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create a New Project</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <Input
+                  placeholder="Project name..."
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateProject()}
+                />
+                <Button onClick={handleCreateProject}>Create Project</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {projects && projects.length > 0 && (
+             <Select
+                value={activeProject?.id}
+                onValueChange={(projectId) => {
+                    const project = projects.find(p => p.id === projectId);
+                    setActiveProject(project || null);
+                }}
+             >
+                <SelectTrigger className="w-[280px]">
+                    <SelectValue placeholder="Select a project" />
+                </SelectTrigger>
+                <SelectContent>
+                    {projects.map(project => (
+                        <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+          )}
+        </div>
+
+        {isUserLoading || projectsLoading ? (
+            <p>Loading projects...</p>
+        ) : !activeProject ? (
+            <div className="text-center py-12">
+                <p className="text-muted-foreground">No projects found. Create one to get started!</p>
+            </div>
+        ) : (
         <Tabs defaultValue="dashboard" className="w-full">
           <TabsList className="grid w-full grid-cols-4 md:w-fit">
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
@@ -31,6 +129,7 @@ export default function Home() {
             <TabsTrigger value="notes">Notes</TabsTrigger>
             <TabsTrigger value="secure">Secure</TabsTrigger>
           </TabsList>
+
           <TabsContent value="dashboard" className="mt-6">
             <div className="grid auto-rows-max items-start gap-6 lg:grid-cols-3">
               <Card className="lg:col-span-2">
@@ -38,7 +137,7 @@ export default function Home() {
                   <CardTitle>AI Day Planner</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <AIPlanner setDailyPlan={setDailyPlan} setTasks={setTasks} />
+                  <AIPlanner projectId={activeProject.id} />
                 </CardContent>
               </Card>
 
@@ -47,7 +146,7 @@ export default function Home() {
                   <CardTitle>Today's Progress</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ProgressTracker tasks={tasks} />
+                  <ProgressTracker projectId={activeProject.id} />
                 </CardContent>
               </Card>
 
@@ -56,35 +155,22 @@ export default function Home() {
                   <CardTitle>Action Items</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <TaskManager tasks={tasks} setTasks={setTasks} />
+                   <TaskManager projectId={activeProject.id} />
                 </CardContent>
               </Card>
-
-              {dailyPlan && (
-                <Card className="lg:col-span-3">
-                  <CardHeader>
-                    <CardTitle>Generated Daily Plan</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <DailyPlanDisplay plan={dailyPlan} />
-                  </CardContent>
-                </Card>
-              )}
             </div>
           </TabsContent>
           <TabsContent value="goals" className="mt-6">
-            <GoalSetter goals={goals} setGoals={setGoals} />
+            <GoalSetter projectId={activeProject.id} />
           </TabsContent>
           <TabsContent value="notes" className="mt-6">
-            <NotesSection notes={notes} setNotes={setNotes} />
+            <NotesSection projectId={activeProject.id} />
           </TabsContent>
           <TabsContent value="secure" className="mt-6">
-            <SecureDocuments
-              isAuthenticated={isAuthenticated}
-              setIsAuthenticated={setIsAuthenticated}
-            />
+            <SecureDocuments projectId={activeProject.id} />
           </TabsContent>
         </Tabs>
+        )}
       </main>
     </div>
   );

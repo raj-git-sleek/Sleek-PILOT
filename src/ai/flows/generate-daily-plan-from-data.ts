@@ -10,7 +10,6 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import {Task} from '@/lib/types';
 
 const GenerateDailyPlanFromDataInputSchema = z.object({
   data: z

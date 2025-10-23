@@ -3,9 +3,26 @@ import { useMemo } from 'react';
 import { Pie, PieChart } from 'recharts';
 import { ChartContainer } from '@/components/ui/chart';
 import { type Task } from '@/lib/types';
+import { useFirebase, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, Query } from 'firebase/firestore';
 
-export function ProgressTracker({ tasks }: { tasks: Task[] }) {
+
+export function ProgressTracker({ projectId }: { projectId: string }) {
+  const { firestore } = useFirebase();
+  const { user } = useUser();
+
+  const tasksQuery = useMemoFirebase(() => {
+    if (!user || !firestore || !projectId) return null;
+    return query(
+      collection(firestore, `users/${user.uid}/projects/${projectId}/subtasks`),
+    ) as Query;
+  }, [user, firestore, projectId]);
+  const { data: tasks } = useCollection<Task>(tasksQuery);
+
   const { completed, total, percentage } = useMemo(() => {
+    if (!tasks) {
+        return { completed: 0, total: 0, percentage: 0 };
+    }
     const total = tasks.length;
     if (total === 0) {
       return { completed: 0, total: 0, percentage: 0 };

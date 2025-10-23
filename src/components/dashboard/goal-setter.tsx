@@ -15,41 +15,60 @@ import { useState } from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Target, Trash2 } from 'lucide-react';
 import type { GoalTimeframe } from '@/lib/types';
+import { useFirebase, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, doc, serverTimestamp, query, Query } from 'firebase/firestore';
+import { addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+
 
 interface GoalSetterProps {
-  goals: Goal[];
-  setGoals: React.Dispatch<React.SetStateAction<Goal[]>>;
+  projectId: string;
 }
 
-export function GoalSetter({ goals, setGoals }: GoalSetterProps) {
+export function GoalSetter({ projectId }: GoalSetterProps) {
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalTimeframe, setNewGoalTimeframe] = useState<GoalTimeframe>('Weekly');
 
+  const { firestore } = useFirebase();
+  const { user } = useUser();
+
+  const goalsQuery = useMemoFirebase(() => {
+    if (!user || !firestore || !projectId) return null;
+    return query(
+      collection(firestore, `users/${user.uid}/projects/${projectId}/goals`),
+    ) as Query;
+  }, [user, firestore, projectId]);
+
+  const { data: goals } = useCollection<Goal>(goalsQuery);
+
   const addGoal = () => {
-    if (newGoalTitle.trim() === '') return;
-    const newGoal: Goal = {
-      id: Date.now().toString(),
+    if (newGoalTitle.trim() === '' || !user || !firestore) return;
+    const goalsCol = collection(firestore, `users/${user.uid}/projects/${projectId}/goals`);
+    const newGoal = {
       title: newGoalTitle,
       timeframe: newGoalTimeframe,
+      projectId,
+      createdAt: serverTimestamp(),
     };
-    setGoals((prev) => [...prev, newGoal]);
+    addDocumentNonBlocking(goalsCol, newGoal);
     setNewGoalTitle('');
   };
 
   const deleteGoal = (id: string) => {
-    setGoals((prev) => prev.filter((goal) => goal.id !== id));
+    if (!user || !firestore) return;
+    const goalDoc = doc(firestore, `users/${user.uid}/projects/${projectId}/goals`, id);
+    deleteDocumentNonBlocking(goalDoc);
   };
 
   const goalsByTimeframe = (timeframe: GoalTimeframe) =>
-    goals.filter((g) => g.timeframe === timeframe);
+    goals?.filter((g) => g.timeframe === timeframe) || [];
 
   const timeframes: GoalTimeframe[] = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Goal Setting</CardTitle>
-        <CardDescription>Define your long-term and short-term ambitions.</CardDescription>
+        <CardTitle>Project Goals</CardTitle>
+        <CardDescription>Define your ambitions for this project.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex flex-col sm:flex-row gap-2">
@@ -100,9 +119,9 @@ export function GoalSetter({ goals, setGoals }: GoalSetterProps) {
             );
           })}
         </Accordion>
-        {goals.length === 0 && (
+        {(!goals || goals.length === 0) && (
             <div className="text-center text-muted-foreground py-8">
-                <p>No goals set yet. Add one above to get started!</p>
+                <p>No goals set for this project yet. Add one above to get started!</p>
             </div>
         )}
       </CardContent>

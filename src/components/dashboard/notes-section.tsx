@@ -8,35 +8,51 @@ import { useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { Paperclip, Trash2, Image as ImageIcon } from 'lucide-react';
+import { useFirebase, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, doc, serverTimestamp, query, Query } from 'firebase/firestore';
+import { addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 interface NotesSectionProps {
-  notes: Note[];
-  setNotes: React.Dispatch<React.SetStateAction<Note[]>>;
+  projectId: string;
 }
 
-export function NotesSection({ notes, setNotes }: NotesSectionProps) {
+export function NotesSection({ projectId }: NotesSectionProps) {
   const [newNoteContent, setNewNoteContent] = useState('');
+  const { firestore } = useFirebase();
+  const { user } = useUser();
+
+  const notesQuery = useMemoFirebase(() => {
+    if (!user || !firestore || !projectId) return null;
+    return query(
+      collection(firestore, `users/${user.uid}/projects/${projectId}/notes`),
+    ) as Query;
+  }, [user, firestore, projectId]);
+
+  const { data: notes } = useCollection<Note>(notesQuery);
 
   const addNote = () => {
-    if (newNoteContent.trim() === '') return;
-    const newNote: Note = {
-      id: Date.now().toString(),
+    if (newNoteContent.trim() === '' || !user || !firestore) return;
+    const notesCol = collection(firestore, `users/${user.uid}/projects/${projectId}/notes`);
+    const newNote = {
       content: newNoteContent,
-      createdAt: new Date(),
+      createdAt: serverTimestamp(),
+      projectId,
     };
-    setNotes((prev) => [newNote, ...prev]);
+    addDocumentNonBlocking(notesCol, newNote);
     setNewNoteContent('');
   };
 
   const deleteNote = (id: string) => {
-    setNotes((prev) => prev.filter((note) => note.id !== id));
+    if (!user || !firestore) return;
+    const noteDoc = doc(firestore, `users/${user.uid}/projects/${projectId}/notes`, id);
+    deleteDocumentNonBlocking(noteDoc);
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Daily Notes</CardTitle>
-        <CardDescription>A place for your random thoughts, ideas, and files.</CardDescription>
+        <CardTitle>Project Notes</CardTitle>
+        <CardDescription>A place for your random thoughts, ideas, and files for this project.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
@@ -55,11 +71,7 @@ export function NotesSection({ notes, setNotes }: NotesSectionProps) {
         </div>
         <ScrollArea className="h-96 rounded-md border">
             <div className="p-4 space-y-4">
-            {notes.length === 0 ? (
-                <div className="text-center text-muted-foreground py-8">
-                    <p>No notes yet. Add your first note above.</p>
-                </div>
-            ) : (
+            {notes && notes.length > 0 ? (
                 notes.map((note) => (
                     <div key={note.id} className="p-4 rounded-md bg-muted/50">
                         <div className="flex justify-between items-start">
@@ -69,10 +81,15 @@ export function NotesSection({ notes, setNotes }: NotesSectionProps) {
                         </Button>
                         </div>
                         <p className="text-xs text-muted-foreground mt-2">
-                        {format(note.createdAt, 'PPp')}
+                          {/* @ts-ignore */}
+                          {note.createdAt?.toDate ? format(note.createdAt.toDate(), 'PPp') : 'Just now'}
                         </p>
                     </div>
                 ))
+            ) : (
+                <div className="text-center text-muted-foreground py-8">
+                    <p>No notes for this project yet. Add your first note above.</p>
+                </div>
             )}
             </div>
         </ScrollArea>

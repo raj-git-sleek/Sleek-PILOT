@@ -9,18 +9,21 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Mic, Paperclip, Sparkles, Wand2 } from 'lucide-react';
 import { generateDailyPlanFromData } from '@/ai/flows/generate-daily-plan-from-data';
 import { organizeDataWithAI, type OrganizeDataWithAIOutput } from '@/ai/flows/organize-data-with-ai';
-import { Task } from '@/lib/types';
+import { useFirebase, useUser } from '@/firebase';
+import { collection, serverTimestamp } from 'firebase/firestore';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 interface AIPlannerProps {
-  setDailyPlan: (plan: string) => void;
-  setTasks: (tasks: Task[]) => void;
+  projectId: string;
 }
 
-export function AIPlanner({ setDailyPlan, setTasks }: AIPlannerProps) {
+export function AIPlanner({ projectId }: AIPlannerProps) {
   const [inputData, setInputData] = useState('');
   const [organizedResult, setOrganizedResult] = useState<OrganizeDataWithAIOutput | null>(null);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+  const { firestore } = useFirebase();
+  const { user } = useUser();
 
   const handleAction = (action: 'organize' | 'plan') => {
     if (!inputData.trim()) {
@@ -42,12 +45,26 @@ export function AIPlanner({ setDailyPlan, setTasks }: AIPlannerProps) {
             description: 'Your input has been successfully categorized and summarized.',
           });
         } else {
+            if (!user || !firestore || !projectId) {
+                toast({ title: 'Error', description: 'Cannot generate plan without a project.', variant: 'destructive' });
+                return;
+            }
           const result = await generateDailyPlanFromData({ data: inputData });
-          setTasks(result.tasks);
-          setDailyPlan(`Your new action items have been added to the "Action Items" card below.`);
-           toast({
+          const tasksCol = collection(firestore, `users/${user.uid}/projects/${projectId}/subtasks`);
+          
+          for (const task of result.tasks) {
+              const newTask = {
+                  text: task.text,
+                  completed: false,
+                  projectId,
+                  createdAt: serverTimestamp(),
+              };
+              addDocumentNonBlocking(tasksCol, newTask);
+          }
+
+          toast({
             title: 'Daily Plan Generated',
-            description: 'Your new step-by-step plan is ready.',
+            description: `Tasks have been added to the Action Items for this project.`,
           });
         }
       } catch (error) {
