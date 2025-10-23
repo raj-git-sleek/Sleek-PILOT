@@ -10,6 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import {Task} from '@/lib/types';
 
 const GenerateDailyPlanFromDataInputSchema = z.object({
   data: z
@@ -21,10 +22,14 @@ const GenerateDailyPlanFromDataInputSchema = z.object({
 export type GenerateDailyPlanFromDataInput = z.infer<typeof GenerateDailyPlanFromDataInputSchema>;
 
 const GenerateDailyPlanFromDataOutputSchema = z.object({
-  dailyPlan: z
-    .string()
-    .describe('A personalized daily plan with actionable to-do items.'),
+  tasks: z.array(z.object({
+      id: z.string().describe('A unique identifier for the task.'),
+      text: z.string().describe('The description of the task.'),
+      completed: z.boolean().describe('Whether the task is completed.'),
+    }))
+    .describe('A list of tasks for the daily plan.'),
 });
+
 export type GenerateDailyPlanFromDataOutput = z.infer<typeof GenerateDailyPlanFromDataOutputSchema>;
 
 export async function generateDailyPlanFromData(
@@ -41,6 +46,7 @@ const prompt = ai.definePrompt({
 
   Analyze the following data provided by the user and generate a step-by-step to-do list for the day.
   The daily plan should be actionable and specific. Focus on extracting key information and converting it into tasks.
+  For each task, provide a unique ID, the task description, and set completed to false.
 
   Data: {{{data}}} `,
 });
@@ -53,6 +59,12 @@ const generateDailyPlanFromDataFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output) {
+      return {tasks: []};
+    }
+    // Ensure each task has a unique ID.
+    return {
+      tasks: output.tasks.map((task, index) => ({...task, id: `${Date.now()}-${index}`}))
+    };
   }
 );

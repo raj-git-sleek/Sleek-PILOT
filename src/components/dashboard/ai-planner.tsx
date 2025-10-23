@@ -9,12 +9,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Mic, Paperclip, Sparkles, Wand2 } from 'lucide-react';
 import { generateDailyPlanFromData } from '@/ai/flows/generate-daily-plan-from-data';
 import { organizeDataWithAI, type OrganizeDataWithAIOutput } from '@/ai/flows/organize-data-with-ai';
+import { Task } from '@/lib/types';
 
 interface AIPlannerProps {
   setDailyPlan: (plan: string) => void;
+  setTasks: (tasks: Task[]) => void;
 }
 
-export function AIPlanner({ setDailyPlan }: AIPlannerProps) {
+export function AIPlanner({ setDailyPlan, setTasks }: AIPlannerProps) {
   const [inputData, setInputData] = useState('');
   const [organizedResult, setOrganizedResult] = useState<OrganizeDataWithAIOutput | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -41,7 +43,8 @@ export function AIPlanner({ setDailyPlan }: AIPlannerProps) {
           });
         } else {
           const result = await generateDailyPlanFromData({ data: inputData });
-          setDailyPlan(result.dailyPlan);
+          setTasks(result.tasks);
+          setDailyPlan(`Your new action items have been added to the "Action Items" card below.`);
            toast({
             title: 'Daily Plan Generated',
             description: 'Your new step-by-step plan is ready.',

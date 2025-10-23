@@ -35,7 +35,7 @@ export default function Home() {
                   <CardTitle>AI Day Planner</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <AIPlanner setDailyPlan={setDailyPlan} />
+                  <AIPlanner setDailyPlan={setDailyPlan} setTasks={setTasks} />
                 </CardContent>
               </Card>
 
