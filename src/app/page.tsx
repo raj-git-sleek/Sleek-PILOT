@@ -72,7 +72,27 @@ export default function Home() {
       <Header />
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold">My Projects</h1>
+          {projects && projects.length > 0 ? (
+             <Select
+                value={activeProject?.id}
+                onValueChange={(projectId) => {
+                    const project = projects.find(p => p.id === projectId);
+                    setActiveProject(project || null);
+                }}
+             >
+                <SelectTrigger className="w-[280px]">
+                    <SelectValue placeholder="Select a project" />
+                </SelectTrigger>
+                <SelectContent>
+                    {projects.map(project => (
+                        <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+          ) : (
+            <h1 className="text-2xl font-bold">My Projects</h1>
+          )}
+
           <Dialog open={isNewProjectDialogOpen} onOpenChange={setIsNewProjectDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm" variant="outline" className="gap-1">
@@ -95,25 +115,6 @@ export default function Home() {
               </div>
             </DialogContent>
           </Dialog>
-
-          {projects && projects.length > 0 && (
-             <Select
-                value={activeProject?.id}
-                onValueChange={(projectId) => {
-                    const project = projects.find(p => p.id === projectId);
-                    setActiveProject(project || null);
-                }}
-             >
-                <SelectTrigger className="w-[280px]">
-                    <SelectValue placeholder="Select a project" />
-                </SelectTrigger>
-                <SelectContent>
-                    {projects.map(project => (
-                        <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-          )}
         </div>
 
         {isUserLoading || projectsLoading ? (
