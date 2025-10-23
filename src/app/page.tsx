@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import type { Task, Goal, Note, Project } from '@/lib/types';
+import { WeeklyProgress } from '@/components/dashboard/weekly-progress';
 
 import { useFirebase, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, Query } from 'firebase/firestore';
@@ -144,14 +145,24 @@ export default function Home() {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Today's Progress</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ProgressTracker projectId={activeProject.id} />
-                </CardContent>
-              </Card>
+              <div className="grid gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Today's Progress</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ProgressTracker projectId={activeProject.id} />
+                  </CardContent>
+                </Card>
+                 <Card>
+                  <CardHeader>
+                    <CardTitle>Weekly Activity</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <WeeklyProgress projectId={activeProject.id} />
+                  </CardContent>
+                </Card>
+              </div>
 
               <Card className="lg:col-span-3">
                 <CardHeader>

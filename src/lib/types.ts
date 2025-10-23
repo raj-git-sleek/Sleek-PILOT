@@ -4,6 +4,7 @@ export type Task = {
   completed: boolean;
   deadline?: Date;
   projectId: string;
+  completedAt?: Date;
 };
 
 export type Goal = {

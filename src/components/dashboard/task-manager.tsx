@@ -43,6 +43,7 @@ export function TaskManager({ projectId }: TaskManagerProps) {
       deadline,
       projectId,
       createdAt: serverTimestamp(),
+      completedAt: null,
     };
     addDocumentNonBlocking(tasksCol, newTask);
     setNewTaskText('');
@@ -52,7 +53,10 @@ export function TaskManager({ projectId }: TaskManagerProps) {
   const toggleTask = (id: string, completed: boolean) => {
     if (!user || !firestore) return;
     const taskDoc = doc(firestore, `users/${user.uid}/projects/${projectId}/subtasks`, id);
-    updateDocumentNonBlocking(taskDoc, { completed: !completed });
+    updateDocumentNonBlocking(taskDoc, { 
+      completed: !completed,
+      completedAt: !completed ? serverTimestamp() : null,
+    });
   };
 
   const deleteTask = (id: string) => {
