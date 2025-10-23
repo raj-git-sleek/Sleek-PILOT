@@ -1,32 +1,26 @@
 import type { Metadata } from 'next';
-import './globals.css';
+
+import '@/app/globals.css';
+
+import { Inter } from 'next/font/google';
+
 import { cn } from '@/lib/utils';
-import { Toaster } from '@/components/ui/toaster';
-import { FirebaseClientProvider } from '@/firebase';
+
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: "Sleek PILOT",
-  description: 'Your intelligent day planner.',
+  title: 'Wege',
+  description: 'The Next generation of business management',
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-      </head>
-      <body className={cn('font-body antialiased', 'min-h-screen bg-background')}>
-        <FirebaseClientProvider>
-          {children}
-        </FirebaseClientProvider>
-        <Toaster />
-      </body>
+    <html lang="en">
+      <body className={cn(inter.className, 'antialiased')}>{children}</body>
     </html>
   );
 }
