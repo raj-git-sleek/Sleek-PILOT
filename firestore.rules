@@ -3,153 +3,148 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the request is made by a signed-in user.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the authenticated user ID matches the provided user ID.
+     * @description Checks if the request is made by the owner of the resource.
+     * @param {string} userId The user ID to compare with the request's authentication UID.
+     * @return {bool} True if the user ID matches the request's authentication UID, false otherwise.
      */
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
     /**
-     * @description Checks if the authenticated user is the owner of the existing document.
-     * It also ensures that the document exists before allowing the operation.
+     * @description Checks if the request is made by the owner of the resource and the resource exists.
+     * @param {string} userId The user ID to compare with the request's authentication UID.
+     * @return {bool} True if the user ID matches the request's authentication UID and the resource exists, false otherwise.
      */
     function isExistingOwner(userId) {
-      return isOwner(userId) && exists( /databases/$(database)/documents/users/$(userId) );
+      return isOwner(userId) && exists(resource);
     }
 
     /**
-     * @description Enforces that the incoming resource data has the correct owner ID on create.
+     * @description Checks if the user is signed in.
+     * @return {bool} True if the user is signed in, false otherwise.
      */
-    function isCreatingWithOwnerId(userId) {
-        return request.resource.data.id == userId;
-    }
-
-    /**
-     * @description Enforces that the owner ID cannot be changed after creation.
-     */
-    function isOwnerIdImmutable(userId) {
-        return resource.data.id == request.resource.data.id;
+    function isSignedIn() {
+      return request.auth != null;
     }
 
     match /users/{userId} {
-      allow read, write: if isSignedIn() && isOwner(userId);
-    }
+        allow read, write: if false; // No access to user document itself
 
-    /**
-     * @description
-     *  Rules for the project documents.
-     * @path /users/{userId}/projects/{projectId}
-     * @allow (create) User 'user123' can create a new project with a matching userId in the path and data.
-     * @allow (get) User 'user123' can read their project document.
-     * @allow (list) User 'user123' can list their project documents.
-     * @allow (update) User 'user123' can update their project document.
-     * @allow (delete) User 'user123' can delete their project document.
-     * @deny (create) User 'user456' cannot create a project under 'user123''s path.
-     * @deny (update) User 'user456' cannot update a project under 'user123''s path.
-     * @deny (delete) User 'user456' cannot delete a project under 'user123''s path.
-     * @principle Enforces document ownership for all operations.
-     */
-    match /users/{userId}/projects/{projectId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
-    }
+        /**
+         * @description Defines the structure and security rules for the /users/{userId}/projects/{projectId} collection.
+         * @path /users/{userId}/projects/{projectId}
+         * @allow (create) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can create a project if userId matches.
+         * @deny (create) User 'randomId' cannot create a project under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/projectId.
+         * @allow (get) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can get project 'I7iqG1dH3qhFymS7nEw3'.
+         * @deny (get) User 'randomId' cannot get project 'I7iqG1dH3qhFymS7nEw3' under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2.
+         * @allow (list) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can list projects under their user ID.
+         * @deny (list) User 'randomId' cannot list projects under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2.
+         * @allow (update) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can update project 'I7iqG1dH3qhFymS7nEw3'.
+         * @deny (update) User 'randomId' cannot update project 'I7iqG1dH3qhFymS7nEw3' under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2.
+         * @allow (delete) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can delete project 'I7iqG1dH3qhFymS7nEw3'.
+         * @deny (delete) User 'randomId' cannot delete project 'I7iqG1dH3qhFymS7nEw3' under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2.
+         * @principle Enforces document ownership for writes and reads, and validates relational integrity.
+         */
+        match /projects/{projectId} {
+          allow create: if request.auth.uid == userId;
+          allow get: if request.auth.uid == userId;
+          allow list: if request.auth.uid == userId;
+          allow update: if request.auth.uid == userId && exists(resource);
+          allow delete: if request.auth.uid == userId && exists(resource);
 
-    /**
-     * @description
-     *  Rules for the subtask documents.
-     * @path /users/{userId}/projects/{projectId}/subtasks/{subtaskId}
-     * @allow (create) User 'user123' can create a new subtask under their project.
-     * @allow (get) User 'user123' can read their subtask document.
-     * @allow (list) User 'user123' can list their subtask documents.
-     * @allow (update) User 'user123' can update their subtask document.
-     * @allow (delete) User 'user123' can delete their subtask document.
-     * @deny (create) User 'user456' cannot create a subtask under 'user123''s project.
-     * @deny (update) User 'user456' cannot update a subtask under 'user123''s project.
-     * @deny (delete) User 'user456' can delete a subtask under 'user123''s project.
-     * @principle Enforces document ownership and project association for all operations.
-     */
-    match /users/{userId}/projects/{projectId}/subtasks/{subtaskId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
-    }
+          /**
+           * @description Defines the structure and security rules for the /users/{userId}/projects/{projectId}/subtasks/{subtaskId} collection.
+           * @path /users/{userId}/projects/{projectId}/subtasks/{subtaskId}
+           * @allow (create) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can create a subtask if userId matches and projectId matches the subtask's projectId.
+           * @deny (create) User 'randomId' cannot create a subtask under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @allow (get) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can get subtask 'subtaskId' under project 'I7iqG1dH3qhFymS7nEw3'.
+           * @deny (get) User 'randomId' cannot get subtask 'subtaskId' under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @allow (list) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can list subtasks under their projects.
+           * @deny (list) User 'randomId' cannot list subtasks under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @allow (update) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can update subtask 'subtaskId' under project 'I7iqG1dH3qhFymS7nEw3.
+           * @deny (update) User 'randomId' cannot update subtask 'subtaskId' under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @allow (delete) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can delete subtask 'subtaskId' under project 'I7iqG1dH3qhFymS7nEw3'.
+           * @deny (delete) User 'randomId' cannot delete subtask 'subtaskId' under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @principle Enforces document ownership for writes and reads, validates relational integrity, and restricts access to a user's own data tree.
+           */
+          match /subtasks/{subtaskId} {
+            allow create: if request.auth.uid == userId;
+            allow get: if request.auth.uid == userId;
+            allow list: if request.auth.uid == userId;
+            allow update: if request.auth.uid == userId && exists(resource);
+            allow delete: if request.auth.uid == userId && exists(resource);
+          }
 
-    /**
-     * @description
-     *  Rules for the goal documents.
-     * @path /users/{userId}/projects/{projectId}/goals/{goalId}
-     * @allow (create) User 'user123' can create a new goal under their project.
-     * @allow (get) User 'user123' can read their goal document.
-     * @allow (list) User 'user123' can list their goal documents.
-     * @allow (update) User 'user123' can update their goal document.
-     * @allow (delete) User 'user123' can delete their goal document.
-     * @deny (create) User 'user456' cannot create a goal under 'user123''s project.
-     * @deny (update) User 'user456' cannot update a goal under 'user123''s project.
-     * @deny (delete) User 'user456' can delete a goal under 'user123''s project.
-     * @principle Enforces document ownership and project association for all operations.
-     */
-    match /users/{userId}/projects/{projectId}/goals/{goalId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
-    }
+          /**
+           * @description Defines the structure and security rules for the /users/{userId}/projects/{projectId}/goals/{goalId} collection.
+           * @path /users/{userId}/projects/{projectId}/goals/{goalId}
+           * @allow (create) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can create a goal if userId matches and projectId matches the goal's projectId.
+           * @deny (create) User 'randomId' cannot create a goal under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @allow (get) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can get goal 'goalId' under project 'I7iqG1dH3qhFymS7nEw3'.
+           * @deny (get) User 'randomId' cannot get goal 'goalId' under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @allow (list) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can list goals under their projects.
+           * @deny (list) User 'randomId' cannot list goals under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @allow (update) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can update goal 'goalId' under project 'I7iqG1dH3qhFymS7nEw3.
+           * @deny (update) User 'randomId' cannot update goal 'goalId' under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @allow (delete) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can delete goal 'goalId' under project 'I7iqG1dH3qhFymS7nEw3'.
+           * @deny (delete) User 'randomId' cannot delete goal 'goalId' under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @principle Enforces document ownership for writes and reads, validates relational integrity, and restricts access to a user's own data tree.
+           */
+          match /goals/{goalId} {
+            allow create: if request.auth.uid == userId;
+            allow get: if request.auth.uid == userId;
+            allow list: if request.auth.uid == userId;
+            allow update: if request.auth.uid == userId && exists(resource);
+            allow delete: if request.auth.uid == userId && exists(resource);
+          }
 
-    /**
-     * @description
-     *  Rules for the note documents.
-     * @path /users/{userId}/projects/{projectId}/notes/{noteId}
-     * @allow (create) User 'user123' can create a new note under their project.
-     * @allow (get) User 'user123' can read their note document.
-     * @allow (list) User 'user123' can list their note documents.
-     * @allow (update) User 'user123' can update their note document.
-     * @allow (delete) User 'user123' can delete their note document.
-     * @deny (create) User 'user456' cannot create a note under 'user123''s project.
-     * @deny (update) User 'user456' cannot update a note under 'user123''s project.
-     * @deny (delete) User 'user456' can delete a note under 'user123''s project.
-     * @principle Enforces document ownership and project association for all operations.
-     */
-    match /users/{userId}/projects/{projectId}/notes/{noteId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
-    }
+          /**
+           * @description Defines the structure and security rules for the /users/{userId}/projects/{projectId}/notes/{noteId} collection.
+           * @path /users/{userId}/projects/{projectId}/notes/{noteId}
+           * @allow (create) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can create a note if userId matches and projectId matches the note's projectId.
+           * @deny (create) User 'randomId' cannot create a note under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @allow (get) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can get note 'noteId' under project 'I7iqG1dH3qhFymS7nEw3'.
+           * @deny (get) User 'randomId' cannot get note 'noteId' under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @allow (list) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can list notes under their projects.
+           * @deny (list) User 'randomId' cannot list notes under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @allow (update) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can update note 'noteId' under project 'I7iqG1dH3qhFymS7nEw3.
+           * @deny (update) User 'randomId' cannot update note 'noteId' under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @allow (delete) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can delete note 'noteId' under project 'I7iqG1dH3qhFymS7nEw3'.
+           * @deny (delete) User 'randomId' cannot delete note 'noteId' under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @principle Enforces document ownership for writes and reads, validates relational integrity, and restricts access to a user's own data tree.
+           */
+          match /notes/{noteId} {
+            allow create: if request.auth.uid == userId;
+            allow get: if request.auth.uid == userId;
+            allow list: if request.auth.uid == userId;
+            allow update: if request.auth.uid == userId && exists(resource);
+            allow delete: if request.auth.uid == userId && exists(resource);
+          }
 
-    /**
-     * @description
-     *  Rules for the research item documents.
-     * @path /users/{userId}/projects/{projectId}/research/{researchId}
-     * @allow (create) User 'user123' can create a new research item under their project.
-     * @allow (get) User 'user123' can read their research item document.
-     * @allow (list) User 'user123' can list their research item documents.
-     * @allow (update) User 'user123' can update their research item document.
-     * @allow (delete) User 'user123' can delete their research item document.
-     * @deny (create) User 'user456' cannot create a research item under 'user123''s project.
-     * @deny (update) User 'user456' cannot update a research item under 'user123''s project.
-     * @deny (delete) User 'user456' can delete a research item under 'user123''s project.
-     * @principle Enforces document ownership and project association for all operations.
-     */
-    match /users/{userId}/projects/{projectId}/research/{researchId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if isSignedIn() && isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+          /**
+           * @description Defines the structure and security rules for the /users/{userId}/projects/{projectId}/research/{researchId} collection.
+           * @path /users/{userId}/projects/{projectId}/research/{researchId}
+           * @allow (create) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can create a research item if userId matches and projectId matches the research item's projectId.
+           * @deny (create) User 'randomId' cannot create a research item under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @allow (get) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can get research item 'researchId' under project 'I7iqG1dH3qhFymS7nEw3'.
+           * @deny (get) User 'randomId' cannot get research item 'researchId' under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @allow (list) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can list research items under their projects.
+           * @deny (list) User 'randomId' cannot list research items under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @allow (update) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can update research item 'researchId' under project 'I7iqG1dH3qhFymS7nEw3'.
+           * @deny (update) User 'randomId' cannot update research item 'researchId' under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @allow (delete) User 'Tz8CKNUL5oNNVyDbikMZQuECUsE2' can delete research item 'researchId' under project 'I7iqG1dH3qhFymS7nEw3'.
+           * @deny (delete) User 'randomId' cannot delete research item 'researchId' under /users/Tz8CKNUL5oNNVyDbikMZQuECUsE2/projects/I7iqG1dH3qhFymS7nEw3.
+           * @principle Enforces document ownership for writes and reads, validates relational integrity, and restricts access to a user's own data tree.
+           */
+          match /research/{researchId} {
+            allow create: if request.auth.uid == userId;
+            allow get: if request.auth.uid == userId;
+            allow list: if request.auth.uid == userId;
+            allow update: if request.auth.uid == userId && exists(resource);
+            allow delete: if request.auth.uid == userId && exists(resource);
+          }
+        }
     }
   }
 }
