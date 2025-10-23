@@ -6,12 +6,10 @@ export type Task = {
   projectId: string;
 };
 
-export type GoalTimeframe = 'Daily' | 'Weekly' | 'Monthly' | 'Yearly';
-
 export type Goal = {
   id: string;
   title: string;
-  timeframe: GoalTimeframe;
+  deadline?: Date;
   projectId: string;
 };
 

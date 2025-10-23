@@ -3,21 +3,17 @@
 import type { Goal } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useState } from 'react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Target, Trash2 } from 'lucide-react';
-import type { GoalTimeframe } from '@/lib/types';
+import { CalendarIcon, Target, Trash2 } from 'lucide-react';
 import { useFirebase, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc, serverTimestamp, query, Query } from 'firebase/firestore';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 
 interface GoalSetterProps {
@@ -26,7 +22,7 @@ interface GoalSetterProps {
 
 export function GoalSetter({ projectId }: GoalSetterProps) {
   const [newGoalTitle, setNewGoalTitle] = useState('');
-  const [newGoalTimeframe, setNewGoalTimeframe] = useState<GoalTimeframe>('Weekly');
+  const [newGoalDeadline, setNewGoalDeadline] = useState<Date | undefined>();
 
   const { firestore } = useFirebase();
   const { user } = useUser();
@@ -45,12 +41,13 @@ export function GoalSetter({ projectId }: GoalSetterProps) {
     const goalsCol = collection(firestore, `users/${user.uid}/projects/${projectId}/goals`);
     const newGoal = {
       title: newGoalTitle,
-      timeframe: newGoalTimeframe,
+      deadline: newGoalDeadline,
       projectId,
       createdAt: serverTimestamp(),
     };
     addDocumentNonBlocking(goalsCol, newGoal);
     setNewGoalTitle('');
+    setNewGoalDeadline(undefined);
   };
 
   const deleteGoal = (id: string) => {
@@ -59,10 +56,6 @@ export function GoalSetter({ projectId }: GoalSetterProps) {
     deleteDocumentNonBlocking(goalDoc);
   };
 
-  const goalsByTimeframe = (timeframe: GoalTimeframe) =>
-    goals?.filter((g) => g.timeframe === timeframe) || [];
-
-  const timeframes: GoalTimeframe[] = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
 
   return (
     <Card>
@@ -77,49 +70,50 @@ export function GoalSetter({ projectId }: GoalSetterProps) {
             value={newGoalTitle}
             onChange={(e) => setNewGoalTitle(e.target.value)}
           />
-          <Select
-            value={newGoalTimeframe}
-            onValueChange={(value: GoalTimeframe) => setNewGoalTimeframe(value)}
-          >
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Select timeframe" />
-            </SelectTrigger>
-            <SelectContent>
-              {timeframes.map((tf) => (
-                <SelectItem key={tf} value={tf}>
-                  {tf}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Popover>
+            <PopoverTrigger asChild>
+                <Button
+                variant={'outline'}
+                className={cn(
+                    'w-full justify-start text-left font-normal sm:w-[240px]',
+                    !newGoalDeadline && 'text-muted-foreground'
+                )}
+                >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {newGoalDeadline ? format(newGoalDeadline, 'PPP') : <span>Pick a deadline</span>}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                mode="single"
+                selected={newGoalDeadline}
+                onSelect={setNewGoalDeadline}
+                initialFocus
+                />
+            </PopoverContent>
+          </Popover>
           <Button onClick={addGoal} className="w-full sm:w-auto">Add Goal</Button>
         </div>
 
-        <Accordion type="multiple" className="w-full" defaultValue={timeframes}>
-          {timeframes.map((timeframe) => {
-            const timeframeGoals = goalsByTimeframe(timeframe);
-            if (timeframeGoals.length === 0) return null;
-            return (
-              <AccordionItem value={timeframe} key={timeframe}>
-                <AccordionTrigger className="text-lg font-medium">{timeframe} Goals</AccordionTrigger>
-                <AccordionContent>
-                  <ul className="space-y-2">
-                    {timeframeGoals.map((goal) => (
-                      <li key={goal.id} className="flex items-center gap-4 rounded-md bg-muted/50 p-3">
-                        <Target className="h-5 w-5 text-primary" />
-                        <span className="flex-1">{goal.title}</span>
-                        <Button variant="ghost" size="icon" onClick={() => deleteGoal(goal.id)}>
-                          <Trash2 className="h-4 w-4 text-muted-foreground" />
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                </AccordionContent>
-              </AccordionItem>
-            );
-          })}
-        </Accordion>
-        {(!goals || goals.length === 0) && (
+        {goals && goals.length > 0 ? (
+            <ul className="space-y-2">
+            {goals.map((goal) => (
+                <li key={goal.id} className="flex items-center gap-4 rounded-md bg-muted/50 p-3">
+                <Target className="h-5 w-5 text-primary" />
+                <span className="flex-1">{goal.title}</span>
+                {goal.deadline && (
+                  <span className="text-xs text-muted-foreground">
+                    {/* @ts-ignore */}
+                    {goal.deadline.toDate ? format(goal.deadline.toDate(), 'MMM d, yyyy') : format(goal.deadline, 'MMM d, yyyy')}
+                  </span>
+                )}
+                <Button variant="ghost" size="icon" onClick={() => deleteGoal(goal.id)}>
+                    <Trash2 className="h-4 w-4 text-muted-foreground" />
+                </Button>
+                </li>
+            ))}
+            </ul>
+        ) : (
             <div className="text-center text-muted-foreground py-8">
                 <p>No goals set for this project yet. Add one above to get started!</p>
             </div>
