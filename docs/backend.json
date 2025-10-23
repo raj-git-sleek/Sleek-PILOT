@@ -142,6 +142,44 @@
         "id",
         "content"
       ]
+    },
+    "ResearchItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Research Item",
+      "type": "object",
+      "description": "Represents a research item, such as a note or a file, associated with a project.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Research Item."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Reference to Project."
+        },
+        "content": {
+          "type": "string",
+          "description": "Text content of the research note."
+        },
+        "fileName": {
+          "type": "string",
+          "description": "The name of the uploaded research file."
+        },
+        "fileUrl": {
+          "type": "string",
+          "description": "The URL to the uploaded research file."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the research item was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "projectId",
+        "createdAt"
+      ]
     }
   },
   "auth": {
@@ -243,8 +281,32 @@
             }
           ]
         }
+      },
+      {
+        "path": "/users/{userId}/projects/{projectId}/research/{researchId}",
+        "definition": {
+          "entityName": "ResearchItem",
+          "schema": {
+            "$ref": "#/backend/entities/ResearchItem"
+          },
+          "description": "Stores research items associated with a specific project. Path-based ownership and project association are enforced.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user owning the project."
+            },
+            {
+              "name": "projectId",
+              "description": "The ID of the project to which the research item belongs."
+            },
+            {
+              "name": "researchId",
+              "description": "The unique ID of the research item."
+            }
+          ]
+        }
       }
     ],
-    "reasoning": "This Firestore structure is designed to organize project-related data, including projects, subtasks, goals, and notes, within a user-specific context. Each user has their own set of projects, and each project can have multiple subtasks, goals, and notes. This structure supports the application's core features, including task management, goal setting, and note-taking, and ensures data synchronization across platforms. The path-based ownership `/users/{userId}/projects/{projectId}` is used to secure private user data.\n\n**Authorization Independence:** The structure achieves authorization independence by relying on path-based ownership for projects, subtasks, goals, and notes. Each document is implicitly associated with a user based on its location in the Firestore hierarchy. This eliminates the need for `get()` calls in security rules to check ownership, enabling atomic operations and simplifying security logic.\n\n**QAPs Support:** The structure supports secure `list` operations (QAPs) by segregating data based on user ownership. Rules can easily grant list access to documents under a specific user's path (`/users/{userId}/...`), ensuring that users can only access their own projects, subtasks, goals, and notes. This prevents unauthorized access to data from other users. The project ID is included in all subcollections for ease of querying."
+    "reasoning": "This Firestore structure is designed to organize project-related data, including projects, subtasks, goals, notes, and research items, within a user-specific context. Each user has their own set of projects, and each project can have multiple subtasks, goals, notes, and research items. This structure supports the application's core features, including task management, goal setting, note-taking, and research consolidation, and ensures data synchronization across platforms. The path-based ownership `/users/{userId}/projects/{projectId}` is used to secure private user data.\\n\\n**Authorization Independence:** The structure achieves authorization independence by relying on path-based ownership. Each document is implicitly associated with a user based on its location in the Firestore hierarchy. This eliminates the need for `get()` calls in security rules to check ownership, enabling atomic operations and simplifying security logic.\\n\\n**QAPs Support:** The structure supports secure `list` operations (QAPs) by segregating data based on user ownership. Rules can easily grant list access to documents under a specific user's path (`/users/{userId}/...`), ensuring that users can only access their own data. The project ID is included in all subcollections for ease of querying."
   }
 }

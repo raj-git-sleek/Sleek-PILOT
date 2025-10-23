@@ -9,6 +9,7 @@ import { NotesSection } from '@/components/dashboard/notes-section';
 import { ProgressTracker } from '@/components/dashboard/progress-tracker';
 import { TaskManager } from '@/components/dashboard/task-manager';
 import { SecureDocuments } from '@/components/dashboard/secure-documents';
+import { ResearchSection } from '@/components/dashboard/research-section';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -123,10 +124,11 @@ export default function Home() {
             </div>
         ) : (
         <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 md:w-fit">
+          <TabsList className="grid w-full grid-cols-5 md:w-fit">
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="goals">Goals</TabsTrigger>
             <TabsTrigger value="notes">Notes</TabsTrigger>
+            <TabsTrigger value="research">Research</TabsTrigger>
             <TabsTrigger value="secure">Secure</TabsTrigger>
           </TabsList>
 
@@ -165,6 +167,9 @@ export default function Home() {
           </TabsContent>
           <TabsContent value="notes" className="mt-6">
             <NotesSection projectId={activeProject.id} />
+          </TabsContent>
+          <TabsContent value="research" className="mt-6">
+            <ResearchSection projectId={activeProject.id} />
           </TabsContent>
           <TabsContent value="secure" className="mt-6">
             <SecureDocuments projectId={activeProject.id} />

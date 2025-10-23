@@ -22,6 +22,15 @@ export type Note = {
   projectId: string;
 };
 
+export type ResearchItem = {
+  id: string;
+  content: string;
+  fileName?: string;
+  fileUrl?: string;
+  createdAt: Date;
+  projectId: string;
+};
+
 export type Project = {
     id: string;
     name: string;
