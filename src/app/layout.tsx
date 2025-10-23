@@ -5,7 +5,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase';
 
 export const metadata: Metadata = {
-  title: 'DayPilot AI',
+  title: 'Project Pilot AI',
   description: 'Your intelligent day planner.',
 };
 
